@@ -6,6 +6,10 @@ An MCP Server to communicate with Jira.
 
 This may work with Jira Data Center rest endpoints (`/rest/api/2`), but as of right now only cloud endpoints have been tested (`/rest/api/3`).
 
+<a href="https://glama.ai/mcp/servers/@brianstone/jira-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@brianstone/jira-mcp-server/badge" alt="Jira Server MCP server" />
+</a>
+
 ## Running the Server
 
 1. Clone this repo
