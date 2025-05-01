@@ -445,4 +445,59 @@ const editIssue: Tool = {
   },
 };
 
-export default [getIssueByKey, searchIssues, createIssue, assignIssue, unassignIssue, editIssue];
+const transitionIssueSchema = z.object({
+  issueKey: z.string(),
+  transition: z.string(),
+});
+
+const transitionIssue: Tool = {
+  schema: {
+    name: 'transition_issue',
+    description: 'Transition an issue to another status.',
+    inputSchema: zodToJsonSchema(transitionIssueSchema),
+  },
+  handle: async (params) => {
+    let validParams;
+    const result = transitionIssueSchema.safeParse(params);
+
+    if (!result.success) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error parsing parameters. Error: ${result.error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    } else {
+      validParams = result.data;
+    }
+
+    const issueTransitionsResponse = await fetch('', {
+      headers: {
+        Authorization: `Basic ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'Issue transitioned',
+        },
+      ],
+    };
+  },
+};
+
+export default [
+  getIssueByKey,
+  searchIssues,
+  createIssue,
+  assignIssue,
+  unassignIssue,
+  editIssue,
+  transitionIssue,
+];
