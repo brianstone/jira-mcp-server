@@ -474,18 +474,89 @@ const transitionIssue: Tool = {
       validParams = result.data;
     }
 
-    const issueTransitionsResponse = await fetch('', {
-      headers: {
-        Authorization: `Basic ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+    const getTransitionsResponse = await fetch(
+      `${process.env.JIRA_PROJECT_URL}/issue/${validParams.issueKey}/transitions`,
+      {
+        headers: {
+          Authorization: `Basic ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!getTransitionsResponse.ok) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Issue retrieving transitions for ${
+              validParams.issueKey
+            }. Error: ${await getTransitionsResponse.json()}`,
+          },
+        ],
+      };
+    }
+
+    const transitionsSchema = z.object({
+      transitions: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+        })
+      ),
     });
+
+    let issueTransitions;
+
+    const transitionsResult = transitionsSchema.safeParse(await getTransitionsResponse.json());
+
+    if (!transitionsResult.success) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error parsing transitions. Error: ${transitionsResult.error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    } else {
+      issueTransitions = transitionsResult.data;
+    }
+
+    const transition = issueTransitions.transitions.filter((transition) => {
+      return transition.name.toLowerCase() === validParams.transition.toLowerCase();
+    });
+
+    const transitionIssueResponse = await fetch(
+      `${process.env.JIRA_PROJECT_URL}/issue/${validParams.issueKey}/transitions`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transition: { id: transition[0].id } }),
+      }
+    );
+
+    if (!transitionIssueResponse.ok) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error transitioning issue. Error: ${await transitionIssueResponse.json()}`,
+          },
+        ],
+        isError: true,
+      };
+    }
 
     return {
       content: [
         {
           type: 'text',
-          text: 'Issue transitioned',
+          text: `Issue ${validParams.issueKey} transitioned to ${transition[0].name}`,
         },
       ],
     };
