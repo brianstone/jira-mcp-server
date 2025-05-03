@@ -8,6 +8,7 @@ import { createIssueSchema } from '../schemas/createIssue';
 import { searchIssuesSchema } from '../schemas/searchIssue';
 import { assignIssueSchema, unassignIssueSchema, userResponseSchema } from '../schemas/assignIssue';
 import { editIssueSchema, updatePayload } from '../schemas/editIssue';
+import { transitionIssueSchema, transitionsSchema } from '../schemas/transitionIssue';
 
 const issueKeySchema = z.object({
   key: z.string().describe('The key of the issue (e.g. ABC-1)'),
@@ -445,4 +446,134 @@ const editIssue: Tool = {
   },
 };
 
-export default [getIssueByKey, searchIssues, createIssue, assignIssue, unassignIssue, editIssue];
+const transitionIssue: Tool = {
+  schema: {
+    name: 'transition_issue',
+    description: 'Transition an issue to another status.',
+    inputSchema: zodToJsonSchema(transitionIssueSchema),
+  },
+  handle: async (params) => {
+    let validParams;
+    const result = transitionIssueSchema.safeParse(params);
+
+    if (!result.success) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error parsing parameters. Error: ${result.error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    } else {
+      validParams = result.data;
+    }
+
+    const getTransitionsResponse = await fetch(
+      `${process.env.JIRA_PROJECT_URL}/issue/${validParams.issueKey}/transitions`,
+      {
+        headers: {
+          Authorization: `Basic ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!getTransitionsResponse.ok) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Issue retrieving transitions for ${
+              validParams.issueKey
+            }. Error: ${await getTransitionsResponse.json()}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    let issueTransitions;
+
+    const transitionsResult = transitionsSchema.safeParse(await getTransitionsResponse.json());
+
+    if (!transitionsResult.success) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error parsing transitions. Error: ${transitionsResult.error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    } else {
+      issueTransitions = transitionsResult.data;
+    }
+
+    const transition = issueTransitions.transitions.filter((transition) => {
+      return transition.name.toLowerCase() === validParams.transition.toLowerCase();
+    });
+
+    if (transition.length === 0) {
+      const allTransitions = issueTransitions.transitions.map((transition) => {
+        return transition.name;
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `No transition matching "${
+              validParams.transition
+            }". The following transitions are available:\n${allTransitions.join('\n')}`,
+          },
+        ],
+      };
+    }
+
+    const transitionIssueResponse = await fetch(
+      `${process.env.JIRA_PROJECT_URL}/issue/${validParams.issueKey}/transitions`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transition: { id: transition[0].id } }),
+      }
+    );
+
+    if (!transitionIssueResponse.ok) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error transitioning issue. Error: ${await transitionIssueResponse.json()}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Issue ${validParams.issueKey} transitioned to ${transition[0].name}`,
+        },
+      ],
+    };
+  },
+};
+
+export default [
+  getIssueByKey,
+  searchIssues,
+  createIssue,
+  assignIssue,
+  unassignIssue,
+  editIssue,
+  transitionIssue,
+];
