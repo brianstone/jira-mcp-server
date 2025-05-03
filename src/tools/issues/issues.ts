@@ -651,8 +651,6 @@ const archiveIssues: Tool = {
         }
       );
 
-      console.error('ARCHIVE JQL RESPONSE: ', await archiveIssuesByJqlResponse.json());
-
       if (!archiveIssuesByJqlResponse.ok) {
         return {
           content: [
