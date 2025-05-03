@@ -28,6 +28,7 @@ In your MCP client, you'll need to add the following environment variables:
 - Assign Issue
 - Unassign Issue
 - Edit Issue
+- Transition Issue
 
 ## Resources
 

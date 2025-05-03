@@ -8,6 +8,7 @@ import { createIssueSchema } from '../schemas/createIssue';
 import { searchIssuesSchema } from '../schemas/searchIssue';
 import { assignIssueSchema, unassignIssueSchema, userResponseSchema } from '../schemas/assignIssue';
 import { editIssueSchema, updatePayload } from '../schemas/editIssue';
+import { transitionIssueSchema, transitionsSchema } from '../schemas/transitionIssue';
 
 const issueKeySchema = z.object({
   key: z.string().describe('The key of the issue (e.g. ABC-1)'),
@@ -445,11 +446,6 @@ const editIssue: Tool = {
   },
 };
 
-const transitionIssueSchema = z.object({
-  issueKey: z.string(),
-  transition: z.string(),
-});
-
 const transitionIssue: Tool = {
   schema: {
     name: 'transition_issue',
@@ -494,17 +490,9 @@ const transitionIssue: Tool = {
             }. Error: ${await getTransitionsResponse.json()}`,
           },
         ],
+        isError: true,
       };
     }
-
-    const transitionsSchema = z.object({
-      transitions: z.array(
-        z.object({
-          id: z.string(),
-          name: z.string(),
-        })
-      ),
-    });
 
     let issueTransitions;
 
@@ -527,6 +515,23 @@ const transitionIssue: Tool = {
     const transition = issueTransitions.transitions.filter((transition) => {
       return transition.name.toLowerCase() === validParams.transition.toLowerCase();
     });
+
+    if (transition.length === 0) {
+      const allTransitions = issueTransitions.transitions.map((transition) => {
+        return transition.name;
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `No transition matching "${
+              validParams.transition
+            }". The following transitions are available:\n${allTransitions.join('\n')}`,
+          },
+        ],
+      };
+    }
 
     const transitionIssueResponse = await fetch(
       `${process.env.JIRA_PROJECT_URL}/issue/${validParams.issueKey}/transitions`,
