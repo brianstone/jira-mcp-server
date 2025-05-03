@@ -9,6 +9,7 @@ import { searchIssuesSchema } from '../schemas/searchIssue';
 import { assignIssueSchema, unassignIssueSchema, userResponseSchema } from '../schemas/assignIssue';
 import { editIssueSchema, updatePayload } from '../schemas/editIssue';
 import { transitionIssueSchema, transitionsSchema } from '../schemas/transitionIssue';
+import { archiveIssueSchema, archiveResponseSchema } from '../schemas/archiveIssue';
 
 const issueKeySchema = z.object({
   key: z.string().describe('The key of the issue (e.g. ABC-1)'),
@@ -568,11 +569,6 @@ const transitionIssue: Tool = {
   },
 };
 
-const archiveIssueSchema = z.object({
-  issueIdsOrKeys: z.array(z.string()).describe('An array of issue ids or keys'),
-  jql: z.string().describe('The JQL for which to query issues.'),
-});
-
 const archiveIssues: Tool = {
   schema: {
     name: 'archive_issues',
@@ -592,16 +588,91 @@ const archiveIssues: Tool = {
             text: `Error parsing parameters. Error: ${result.error.message}`,
           },
         ],
+        isError: true,
       };
     } else {
       validParams = result.data;
+    }
+
+    let archiveResponse;
+
+    if (validParams.issueIdsOrKeys.length > 0) {
+      const archiveIssueByKeysResponse = await fetch(
+        `${process.env.JIRA_PROJECT_URL}/issue/archive`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Basic ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ issueIdsOrKeys: validParams.issueIdsOrKeys }),
+        }
+      );
+
+      if (!archiveIssueByKeysResponse.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error archiving issues by keys. Error: ${await archiveIssueByKeysResponse.json()}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const validArchiveByKeysResponse = archiveResponseSchema.safeParse(
+        await archiveIssueByKeysResponse.json()
+      );
+
+      if (!validArchiveByKeysResponse.success) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error parsing archive response. Error: ${validArchiveByKeysResponse.error.message}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      archiveResponse = validArchiveByKeysResponse.data;
+    } else {
+      const archiveIssuesByJqlResponse = await fetch(
+        `${process.env.JIRA_PROJECT_URL}/issue/archive`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ jql: validParams.jql }),
+        }
+      );
+
+      console.error('ARCHIVE JQL RESPONSE: ', await archiveIssuesByJqlResponse.json());
+
+      if (!archiveIssuesByJqlResponse.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error archiving issues by keys. Error: ${await archiveIssuesByJqlResponse.json()}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      archiveResponse = { message: `View archive status at ${archiveIssuesByJqlResponse.body}` };
     }
 
     return {
       content: [
         {
           type: 'text',
-          text: 'Issue(s) archived successfully.',
+          text: `Issue(s) archived successfully.\n${JSON.stringify(archiveResponse)}`,
         },
       ],
     };
