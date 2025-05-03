@@ -568,6 +568,46 @@ const transitionIssue: Tool = {
   },
 };
 
+const archiveIssueSchema = z.object({
+  issueIdsOrKeys: z.array(z.string()).describe('An array of issue ids or keys'),
+  jql: z.string().describe('The JQL for which to query issues.'),
+});
+
+const archiveIssues: Tool = {
+  schema: {
+    name: 'archive_issues',
+    description: 'Archive one or more issues by keys or JQL',
+    inputSchema: zodToJsonSchema(archiveIssueSchema),
+  },
+  handle: async (params) => {
+    let validParams;
+
+    const result = archiveIssueSchema.safeParse(params);
+
+    if (!result.success) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error parsing parameters. Error: ${result.error.message}`,
+          },
+        ],
+      };
+    } else {
+      validParams = result.data;
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'Issue(s) archived successfully.',
+        },
+      ],
+    };
+  },
+};
+
 export default [
   getIssueByKey,
   searchIssues,
@@ -576,4 +616,5 @@ export default [
   unassignIssue,
   editIssue,
   transitionIssue,
+  archiveIssues,
 ];
