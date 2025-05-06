@@ -1,5 +1,7 @@
 # Jira MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@brianstone/jira-mcp-server)](https://smithery.ai/server/@brianstone/jira-mcp-server)
+
 ⚠️ This MCP Server is a work in progress ⚠️
 
 An MCP Server to communicate with Jira.
